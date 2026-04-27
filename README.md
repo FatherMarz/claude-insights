@@ -4,14 +4,33 @@ Local meta-monitoring for Claude Code. Reads the JSONL session logs Claude Code 
 
 No network calls. No account. No telemetry. Runs entirely on data already on your disk.
 
+![Operations tab](./docs/screenshots/01-operations.png)
+
 ## What you get
 
 Four tabs over a date-range filter (7d / 30d / 60d / 90d / 180d):
 
-- **Operations** — tokens by model (daily), sessions per project, tool usage, subagent spawns by tier, session-length distribution, top slash commands.
-- **Quality** — drift signals inspired by [cc-canary](https://github.com/delta-hq/cc-canary): read:edit ratio, reasoning-loop frequency, write share of mutations, thinking-redaction rate, API turns per user turn, tokens per user turn. With healthy/warning/concerning bands where applicable.
-- **Activity** — KPI strip (sessions, active hours, total tokens, tool calls, response times, est. cost) plus charts for hour-of-day, sessions per day, cost per day by model, token-type breakdown, response-time trend.
-- **Usage** — Max-plan style metrics: prompts this week vs last week (rolling 7d / 7-14d), 5h block size distribution, blocks per day, plus optional session outcomes / helpfulness / friction reasons from `~/.claude/usage-data/facets/` if those exist.
+### Operations
+
+Tokens by model (daily), sessions per project, tool usage, subagent spawns by tier, session-length distribution, top slash commands.
+
+### Quality
+
+Drift signals inspired by [cc-canary](https://github.com/delta-hq/cc-canary): read:edit ratio, reasoning-loop frequency, write share of mutations, thinking-redaction rate, API turns per user turn, tokens per user turn. With healthy/warning/concerning bands where applicable.
+
+![Quality tab](./docs/screenshots/02-quality.png)
+
+### Activity
+
+KPI strip (sessions, active hours, total tokens, tool calls, response times, est. cost) plus charts for hour-of-day, sessions per day, cost per day by model, token-type breakdown, response-time trend.
+
+![Activity tab](./docs/screenshots/03-activity.png)
+
+### Usage
+
+Max-plan style metrics: prompts this week vs last week (rolling 7d / 7-14d), 5h block size distribution, blocks per day, plus optional session outcomes / helpfulness / friction reasons from `~/.claude/usage-data/facets/` if those exist.
+
+![Usage tab](./docs/screenshots/04-usage.png)
 
 ## Requirements
 
