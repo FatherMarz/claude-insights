@@ -1,0 +1,370 @@
+:root {
+  /* Carbon-black surfaces — warmer than GitHub's blue-black */
+  --bg: #14110f;
+  --surface-1: #1c1915;
+  --surface-2: #25211c;
+  --surface-3: #2f2a23;
+
+  /* Hairline borders — bone-tinted, low opacity */
+  --border: rgba(232, 226, 214, 0.07);
+  --border-strong: rgba(232, 226, 214, 0.14);
+  --border-emphasis: rgba(232, 226, 214, 0.22);
+
+  /* Text hierarchy — bone-white through fade */
+  --text: #e8e2d6;
+  --text-2: #b9b1a3;
+  --text-3: #80796d;
+  --text-muted: #5a5447;
+
+  /* Signature accents — instrument console */
+  --phosphor: #5dd66c;
+  --phosphor-dim: #4ab85c;
+  --amber: #f4a627;
+  --canary: #e8c547;
+  --copper: #c4684a;
+  --copper-dim: #a85a40;
+
+  /* Model tiers — copper/phosphor/canary, not RGB primary */
+  --tier-opus: #c4684a;
+  --tier-sonnet: #5dd66c;
+  --tier-haiku: #e8c547;
+  --tier-other: #8b8678;
+  --tier-inherited: #5a5447;
+
+  /* Status bands */
+  --good: #5dd66c;
+  --warn: #f4a627;
+  --bad: #d94f4f;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: var(--text-2);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+button:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+button[data-active='true'] {
+  background: transparent;
+  color: var(--phosphor);
+  border-color: var(--phosphor-dim);
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 10px;
+}
+
+.app {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.app-title::before {
+  content: '◉ ';
+  color: var(--phosphor);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: 1px;
+}
+
+.app-subtitle {
+  color: var(--text-3);
+  font-size: 11px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 16px;
+}
+
+.filter-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-right: 4px;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.tab:hover {
+  color: var(--text-2);
+  background: transparent;
+  border-bottom-color: var(--border-strong);
+}
+
+.tab[data-active='true'] {
+  color: var(--phosphor);
+  border-bottom-color: var(--phosphor);
+  background: transparent;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 16px 18px;
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--border-emphasis) 20%,
+    var(--border-emphasis) 80%,
+    transparent
+  );
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+
+.card-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 0 0 14px 0;
+  line-height: 1.45;
+}
+
+.empty,
+.loading,
+.error {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.error {
+  color: var(--bad);
+}
+
+.meta-strip {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.meta-strip span strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Instrument-readout KPI cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.kpi {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 14px 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--border-emphasis);
+}
+
+.kpi-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.kpi-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recharts overrides — bone-white text everywhere */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-emphasis) !important;
+  border-radius: 3px !important;
+  padding: 8px 10px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  color: var(--text) !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--text) !important;
+  font-weight: 500 !important;
+  margin-bottom: 4px !important;
+  letter-spacing: 0.04em !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.recharts-tooltip-item {
+  color: var(--text) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-separator,
+.recharts-tooltip-item-value,
+.recharts-tooltip-item-unit {
+  color: var(--text) !important;
+}
+
+.recharts-legend-item-text {
+  color: var(--text-2) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.recharts-cartesian-axis-tick-value {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
+}
