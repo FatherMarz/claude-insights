@@ -1,4 +1,5 @@
 import type { ParsedDataset, ParsedMessage } from './parser.ts';
+import { dateKeyMt } from './zone.ts';
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
 
@@ -46,9 +47,7 @@ function isoWeekStart(date: Date): Date {
   return d;
 }
 
-function dateOnly(ts: string): string {
-  return ts.slice(0, 10);
-}
+const dateOnly = dateKeyMt;
 
 export function aggregateUsage(
   dataset: ParsedDataset,
@@ -143,7 +142,7 @@ export function aggregateUsage(
 
   const blocksPerDayMap = new Map<string, number>();
   for (const b of blocks) {
-    const d = dateOnly(new Date(b.startMs).toISOString());
+    const d = dateOnly(b.startMs);
     blocksPerDayMap.set(d, (blocksPerDayMap.get(d) ?? 0) + 1);
   }
   const blocksPerDay: BlocksPerDay[] = Array.from(blocksPerDayMap.entries())

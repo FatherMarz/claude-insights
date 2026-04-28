@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { ActivityAggregate } from '../types.ts';
+import { timezoneLabel } from '../lib/window.ts';
 
 const COLORS = {
   opus: '#c4684a',
@@ -106,7 +107,7 @@ export function ActivityTab({ data }: { data: ActivityAggregate }) {
       <div className="grid">
         <div className="card">
           <h3 className="card-title">Hour-of-day activity</h3>
-          <p className="card-sub">When in the day work happens (UTC, assistant messages)</p>
+          <p className="card-sub">When in the day work happens ({timezoneLabel()}, assistant messages)</p>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.hourDistribution}>
               <CartesianGrid stroke={GRID_STROKE} strokeDasharray="2 4" />
@@ -121,7 +122,7 @@ export function ActivityTab({ data }: { data: ActivityAggregate }) {
                 contentStyle={tooltipStyle}
                 labelStyle={labelStyle}
                 itemStyle={itemStyle}
-                labelFormatter={(h: number) => `${h}:00 UTC`}
+                labelFormatter={(h: number) => `${h}:00 ${timezoneLabel()}`}
               />
               <Bar dataKey="count" fill={COLORS.bar} />
             </BarChart>

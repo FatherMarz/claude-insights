@@ -1,4 +1,5 @@
 import type { ParsedDataset, ParsedMessage } from './parser.ts';
+import { dateKeyMt, hourMt } from './zone.ts';
 
 interface Rates {
   input: number;
@@ -26,9 +27,7 @@ function tierOf(model: string | undefined): keyof typeof RATES {
   return 'other';
 }
 
-function dateOnly(ts: string): string {
-  return ts.slice(0, 10);
-}
+const dateOnly = dateKeyMt;
 
 function computeCost(msg: ParsedMessage): number {
   const r = RATES[tierOf(msg.model)];
@@ -139,7 +138,7 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
 
       // Hour-of-day on assistant messages (when work is happening)
       if (m.type === 'assistant' && m.timestamp) {
-        const hour = new Date(m.timestamp).getUTCHours();
+        const hour = hourMt(m.timestamp);
         hourCounts[hour]++;
 
         toolCalls += m.toolCalls.length;

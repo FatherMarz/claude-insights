@@ -1,4 +1,5 @@
 import type { ParsedDataset, ParsedMessage } from './parser.ts';
+import { dateKeyMt } from './zone.ts';
 
 export interface DailyTokens {
   date: string;
@@ -38,9 +39,7 @@ function modelTier(model: string | undefined): 'opus' | 'sonnet' | 'haiku' | 'ot
   return 'other';
 }
 
-function dateOnly(ts: string): string {
-  return ts.slice(0, 10);
-}
+const dateOnly = dateKeyMt;
 
 function projectName(key: string): string {
   // key format: -Users-marcello-Documents-Development-Cabreza-codebase

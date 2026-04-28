@@ -1,4 +1,5 @@
 import type { ParsedDataset } from './parser.ts';
+import { dateKeyMt } from './zone.ts';
 
 export interface DailyRatio {
   date: string;
@@ -18,9 +19,7 @@ export interface QualityAggregate {
 
 const REASONING_LOOP_RE = /\b(let me try again|actually,|oh wait|wait,|on second thought|let me reconsider|hmm,|let me rethink)\b/gi;
 
-function dateOnly(ts: string): string {
-  return ts.slice(0, 10);
-}
+const dateOnly = dateKeyMt;
 
 interface DayBucket {
   reads: number;

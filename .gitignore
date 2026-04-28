@@ -6,3 +6,6 @@ dist/
 .env.local
 .vscode/
 .idea/
+
+# Per-user state — usage-log.json holds personal % readings.
+data/

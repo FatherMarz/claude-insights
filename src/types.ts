@@ -124,6 +124,24 @@ export interface FacetsAggregate {
   totalSessionsInRange: number;
 }
 
+export interface UsageLogEntry {
+  id: string;
+  timestamp: string;
+  percent: number;
+  note?: string;
+}
+
+export interface UsageLogConfig {
+  resetDayOfWeek: number;
+  resetHour: number;
+  timezoneNote?: string;
+}
+
+export interface UsageLogFile {
+  config: UsageLogConfig;
+  entries: UsageLogEntry[];
+}
+
 export interface InsightsResponse {
   operations: OperationsAggregate;
   quality: QualityAggregate;

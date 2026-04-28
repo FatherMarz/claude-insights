@@ -6,11 +6,18 @@ import { aggregateQuality } from './quality.ts';
 import { aggregateActivity } from './activity.ts';
 import { aggregateUsage } from './usage.ts';
 import { aggregateFacets, loadAllFacets } from './facets.ts';
+import {
+  appendUsageLogEntry,
+  deleteUsageLogEntry,
+  getUsageLog,
+  updateUsageLogConfig,
+} from './usage-log.ts';
 
 const app = express();
 const PORT = 3850;
 
 app.use(cors());
+app.use(express.json());
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ ok: true, port: PORT });
@@ -55,6 +62,48 @@ app.get('/api/data', async (req: Request, res: Response) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
     res.status(500).json({ error: message });
+  }
+});
+
+app.get('/api/usage-log', async (_req: Request, res: Response) => {
+  try {
+    res.json(await getUsageLog());
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.post('/api/usage-log', async (req: Request, res: Response) => {
+  try {
+    const { percent, note, timestamp } = req.body ?? {};
+    const entry = await appendUsageLogEntry({
+      percent: Number(percent),
+      note: typeof note === 'string' ? note : undefined,
+      timestamp: typeof timestamp === 'string' ? timestamp : undefined,
+    });
+    res.status(201).json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.delete('/api/usage-log/:id', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const ok = await deleteUsageLogEntry(id);
+    if (!ok) return res.status(404).json({ error: 'entry not found' });
+    res.status(204).end();
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.patch('/api/usage-log/config', async (req: Request, res: Response) => {
+  try {
+    const config = await updateUsageLogConfig(req.body ?? {});
+    res.json(config);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'unknown error' });
   }
 });
 
