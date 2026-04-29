@@ -5,6 +5,7 @@ export interface DailyTokens {
   haiku: number;
   other: number;
   total: number;
+  prompts: number;
 }
 
 export interface NamedCount {
@@ -46,6 +47,8 @@ export interface QualityAggregate {
 export interface ActivityKPIs {
   sessions: number;
   activeHours: number;
+  userTimeHours: number;
+  claudeTimeHours: number;
   toolCalls: number;
   avgResponseTimeSec: number;
   medianResponseTimeSec: number;
@@ -85,12 +88,19 @@ export interface DailySessions {
   count: number;
 }
 
+export interface DailyTimeSplit {
+  date: string;
+  userHours: number;
+  claudeHours: number;
+}
+
 export interface ActivityAggregate {
   kpis: ActivityKPIs;
   hourDistribution: HourBucket[];
   sessionsPerDay: DailySessions[];
   costPerDay: DailyCost[];
   responseTimePerDay: DailyResponseTime[];
+  timeSplitPerDay: DailyTimeSplit[];
   tokenBreakdown: { name: string; value: number }[];
 }
 

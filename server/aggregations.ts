@@ -8,6 +8,7 @@ export interface DailyTokens {
   haiku: number;
   other: number;
   total: number;
+  prompts: number;
 }
 
 export interface NamedCount {
@@ -59,16 +60,21 @@ export function aggregateOperations(dataset: ParsedDataset): OperationsAggregate
     const day = dateOnly(msg.timestamp);
     if (!day) continue;
 
+    let bucket = dailyMap.get(day);
+    if (!bucket) {
+      bucket = { date: day, opus: 0, sonnet: 0, haiku: 0, other: 0, total: 0, prompts: 0 };
+      dailyMap.set(day, bucket);
+    }
+
+    if (msg.type === 'user' && msg.userPrompt !== undefined) {
+      bucket.prompts++;
+    }
+
     if (msg.type === 'assistant') {
       const tier = modelTier(msg.model);
       const totalTokens =
         msg.inputTokens + msg.cacheCreationTokens + msg.cacheReadTokens + msg.outputTokens;
 
-      let bucket = dailyMap.get(day);
-      if (!bucket) {
-        bucket = { date: day, opus: 0, sonnet: 0, haiku: 0, other: 0, total: 0 };
-        dailyMap.set(day, bucket);
-      }
       bucket[tier] += totalTokens;
       bucket.total += totalTokens;
 

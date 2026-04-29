@@ -202,20 +202,48 @@ export async function parseAll(fromIso?: string, toIso?: string): Promise<Parsed
     }
 
     for (const entry of entries) {
-      if (!entry.endsWith('.jsonl')) continue;
-      const filePath = join(projectPath, entry);
+      const entryPath = join(projectPath, entry);
+      if (entry.endsWith('.jsonl')) {
+        try {
+          const stat = statSync(entryPath);
+          if (stat.mtimeMs < fromMs) continue;
+          const cached = fileCache.get(entryPath);
+          tasks.push({
+            filePath: entryPath,
+            projectKey,
+            mtimeMs: stat.mtimeMs,
+            cacheHit: cached?.mtimeMs === stat.mtimeMs,
+          });
+        } catch {
+          errorCount++;
+        }
+        continue;
+      }
+
+      // Subagent JSONLs live at <projectKey>/<session-uuid>/subagents/*.jsonl.
+      // Each Task spawn writes its own jsonl with its own session-id.
       try {
-        const stat = statSync(filePath);
-        if (stat.mtimeMs < fromMs) continue;
-        const cached = fileCache.get(filePath);
-        tasks.push({
-          filePath,
-          projectKey,
-          mtimeMs: stat.mtimeMs,
-          cacheHit: cached?.mtimeMs === stat.mtimeMs,
-        });
+        const sub = join(entryPath, 'subagents');
+        if (!statSync(sub).isDirectory()) continue;
+        for (const subFile of readdirSync(sub)) {
+          if (!subFile.endsWith('.jsonl')) continue;
+          const subPath = join(sub, subFile);
+          try {
+            const stat = statSync(subPath);
+            if (stat.mtimeMs < fromMs) continue;
+            const cached = fileCache.get(subPath);
+            tasks.push({
+              filePath: subPath,
+              projectKey,
+              mtimeMs: stat.mtimeMs,
+              cacheHit: cached?.mtimeMs === stat.mtimeMs,
+            });
+          } catch {
+            errorCount++;
+          }
+        }
       } catch {
-        errorCount++;
+        // not a directory or no subagents/ folder — fine, skip
       }
     }
   }

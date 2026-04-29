@@ -92,18 +92,39 @@ select {
 }
 
 .app {
-  max-width: 1600px;
+  max-width: 1920px;
   margin: 0 auto;
-  padding: 28px 24px 48px;
+  padding: 24px 32px 32px;
 }
 
 .app-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.app-header-title {
+  flex: 0 0 auto;
+}
+
+.refresh-btn {
+  margin-left: auto;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.control-row .filter-bar {
+  margin-bottom: 0;
 }
 
 .app-title {
@@ -114,13 +135,11 @@ select {
   color: var(--text);
 }
 
-.app-title::before {
-  content: '◉ ';
-  color: var(--phosphor);
-  font-size: 14px;
-  letter-spacing: 0;
-  text-transform: none;
-  vertical-align: 1px;
+.app-header-mascot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  filter: drop-shadow(0 0 6px rgba(217, 119, 87, 0.30));
 }
 
 .app-subtitle {
@@ -150,6 +169,14 @@ select {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin-right: 4px;
+}
+
+.filter-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--border-emphasis);
+  margin: 0 8px;
 }
 
 .tabs {
@@ -190,6 +217,263 @@ select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
   gap: 14px;
+}
+
+/* Dense variant for the Insights tab — tighter cards so the full pane fits
+   on a single screen at common laptop heights. */
+.grid-dense {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+/* Collapsed-by-default row of secondary charts. <details> lets us toggle the
+   bottom band without managing state. */
+.collapsible-row {
+  margin-top: 10px;
+}
+
+.collapsible-row > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 8px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 10px;
+  user-select: none;
+}
+
+.collapsible-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-row > summary::before {
+  content: '▸ ';
+  display: inline-block;
+  margin-right: 4px;
+  transition: transform 0.15s ease;
+}
+
+.collapsible-row[open] > summary::before {
+  content: '▾ ';
+}
+
+.collapsible-row > summary:hover {
+  color: var(--text);
+}
+
+/* WindowChart card header — title block on left, "+ Log reading" on right. */
+.window-card {
+  margin-top: 10px;
+}
+
+.window-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.grid-dense .card {
+  padding: 10px 12px;
+}
+
+.grid-dense .card-sub {
+  margin-bottom: 8px;
+}
+
+/* Flat horizontal stat strip — single bordered container, dividers between cells.
+   Replaces 10 individual KPI cards with one row that always fits. */
+.stat-strip {
+  display: flex;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stat-strip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--border-emphasis);
+}
+
+.stat-cell {
+  flex: 1;
+  padding: 10px 14px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-cell:last-child {
+  border-right: none;
+}
+
+.stat-cell--wide {
+  flex: 2;
+}
+
+.stat-cell--clickable {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.stat-cell--clickable:hover {
+  background: rgba(232, 226, 214, 0.04);
+}
+
+.stat-cell--good .stat-cell-value {
+  color: #5dd66c;
+}
+.stat-cell--warn .stat-cell-value {
+  color: #f4a627;
+}
+.stat-cell--bad .stat-cell-value {
+  color: #d94f4f;
+}
+
+/* "Live state" variant — slightly recessed background to read as a passive
+   status bar separate from the range-based aggregate strip below it. */
+.stat-strip--status {
+  margin-bottom: 8px;
+  background: rgba(232, 226, 214, 0.02);
+}
+
+/* Per-cell tone classes do the coloring now; default is neutral. */
+
+/* Header-embedded variant — smaller cells so the strip fits between the
+   title and the Refresh button without forcing a wrap. */
+.stat-strip--header .stat-cell {
+  padding: 6px 10px;
+  gap: 2px;
+}
+
+.stat-strip--header .stat-cell-value {
+  font-size: 14px;
+}
+
+.stat-strip--header .stat-cell-label,
+.stat-strip--header .stat-cell-sub {
+  font-size: 9px;
+}
+
+/* Prominent variant — title block on the left, value on the right.
+   Bigger title, restrained value font. Used by the live WindowStatusStrip. */
+.stat-strip--prominent {
+  margin-top: 14px;
+}
+
+.stat-strip--prominent .stat-cell {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  gap: 16px;
+}
+
+.stat-strip--prominent .stat-cell-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stat-strip--prominent .stat-cell-label {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.stat-strip--prominent .stat-cell-sub {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.stat-strip--prominent .stat-cell-value {
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+
+.stat-cell-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-cell-value {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-cell-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Force a clean 4-column chart grid for Insights. 4 cols × 3 rows = 12 charts. */
+.grid-4col {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* 3-column grid for Quality — fewer charts, more breathing room per card. */
+.grid-3col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1200px) {
+  .grid-4col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grid-3col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-strip {
+    flex-wrap: wrap;
+  }
+  .stat-cell {
+    flex: 1 1 20%;
+  }
 }
 
 .card {
@@ -245,6 +529,20 @@ select {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+/* When `.empty` is inside a `.card`, lock its height to match the chart's
+   ResponsiveContainer height so the card stays the same size whether or not
+   data is present. */
+.card .empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 170px;
+  padding: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .error {

@@ -50,6 +50,8 @@ function median(values: number[]): number {
 export interface ActivityKPIs {
   sessions: number;
   activeHours: number;
+  userTimeHours: number;
+  claudeTimeHours: number;
   toolCalls: number;
   avgResponseTimeSec: number;
   medianResponseTimeSec: number;
@@ -89,12 +91,19 @@ export interface DailySessions {
   count: number;
 }
 
+export interface DailyTimeSplit {
+  date: string;
+  userHours: number;
+  claudeHours: number;
+}
+
 export interface ActivityAggregate {
   kpis: ActivityKPIs;
   hourDistribution: HourBucket[];
   sessionsPerDay: DailySessions[];
   costPerDay: DailyCost[];
   responseTimePerDay: DailyResponseTime[];
+  timeSplitPerDay: DailyTimeSplit[];
   tokenBreakdown: { name: string; value: number }[];
 }
 
@@ -120,6 +129,8 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
   }
 
   let activeMs = 0;
+  let userTimeMs = 0;
+  let claudeTimeMs = 0;
   let toolCalls = 0;
   let totalInput = 0;
   let totalCacheCreation = 0;
@@ -131,6 +142,7 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
   const sessionsPerDayMap = new Map<string, number>();
   const costPerDayMap = new Map<string, DailyCost>();
   const responsesByDay = new Map<string, number[]>();
+  const timeSplitByDay = new Map<string, { userMs: number; claudeMs: number }>();
 
   for (const [, msgs] of bySession) {
     for (let i = 0; i < msgs.length; i++) {
@@ -161,10 +173,35 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
         bucket.total += cost;
       }
 
-      // Active time: gap to previous message in this session
+      // Active time: gap-capped at ACTIVE_GAP_MS (excludes idle).
+      // Time split — hybrid cap policy:
+      //   - gap before a real user prompt = your reading/typing pause.
+      //     Cap at ACTIVE_GAP_MS. Longer = walked-away idle, drop both sides.
+      //   - gap before tool_result / assistant continuation = Claude working.
+      //     NO cap. A 4-hour Bash run is real Claude time.
       if (i > 0) {
         const gap = new Date(m.timestamp).getTime() - new Date(msgs[i - 1].timestamp).getTime();
-        if (gap > 0 && gap < ACTIVE_GAP_MS) activeMs += gap;
+        if (gap > 0) {
+          if (gap < ACTIVE_GAP_MS) activeMs += gap;
+
+          const isUserPromptNext = m.type === 'user' && m.userPrompt !== undefined;
+          const counts = isUserPromptNext ? gap < ACTIVE_GAP_MS : true;
+          if (counts) {
+            const day = dateOnly(m.timestamp);
+            let split = timeSplitByDay.get(day);
+            if (!split) {
+              split = { userMs: 0, claudeMs: 0 };
+              timeSplitByDay.set(day, split);
+            }
+            if (isUserPromptNext) {
+              userTimeMs += gap;
+              split.userMs += gap;
+            } else {
+              claudeTimeMs += gap;
+              split.claudeMs += gap;
+            }
+          }
+        }
       }
 
       // Response time: user → next assistant
@@ -204,6 +241,8 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
   const kpis: ActivityKPIs = {
     sessions: bySession.size,
     activeHours: activeMs / 3_600_000,
+    userTimeHours: userTimeMs / 3_600_000,
+    claudeTimeHours: claudeTimeMs / 3_600_000,
     toolCalls,
     avgResponseTimeSec:
       allResponses.length > 0
@@ -237,12 +276,21 @@ export function aggregateActivity(dataset: ParsedDataset): ActivityAggregate {
     { name: 'Output', value: totalOutput },
   ];
 
+  const timeSplitPerDay: DailyTimeSplit[] = Array.from(timeSplitByDay.entries())
+    .map(([date, { userMs, claudeMs }]) => ({
+      date,
+      userHours: userMs / 3_600_000,
+      claudeHours: claudeMs / 3_600_000,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   return {
     kpis,
     hourDistribution,
     sessionsPerDay,
     costPerDay,
     responseTimePerDay,
+    timeSplitPerDay,
     tokenBreakdown,
   };
 }

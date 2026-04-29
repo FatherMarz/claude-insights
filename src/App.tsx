@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchInsights, fetchUsageLog } from './api.ts';
 import { currentWindowStart } from './lib/window.ts';
-import { OperationsTab } from './tabs/Operations.tsx';
+import { emptyInsights } from './lib/empty.ts';
+import { Octopus } from './components/Octopus.tsx';
+import { InsightsTab } from './tabs/Insights.tsx';
 import { QualityTab } from './tabs/Quality.tsx';
-import { ActivityTab } from './tabs/Activity.tsx';
-import { UsageTab } from './tabs/Usage.tsx';
-import { HistoryTab } from './tabs/History.tsx';
 
-type TabId = 'usage' | 'operations' | 'quality' | 'activity' | 'history';
+type TabId = 'insights' | 'quality';
 
 const RANGES = [
   { id: '7d', label: '7d', days: 7 },
@@ -21,7 +20,7 @@ const RANGES = [
 type RangeId = (typeof RANGES)[number]['id'] | 'window';
 
 // Tabs that consume range-filtered JSONL aggregations. Range bar shows for these only.
-const RANGE_DRIVEN_TABS: TabId[] = ['operations', 'quality', 'activity', 'history'];
+const RANGE_DRIVEN_TABS: TabId[] = ['insights', 'quality'];
 
 function isoFor(daysAgo: number): string {
   const d = new Date();
@@ -35,7 +34,7 @@ function todayIso(): string {
 }
 
 export function App() {
-  const [tab, setTab] = useState<TabId>('usage');
+  const [tab, setTab] = useState<TabId>('insights');
   const [rangeId, setRangeId] = useState<RangeId>('window');
 
   // Pull the Manual Limit Log config so the "Window" range knows when the
@@ -68,77 +67,54 @@ export function App() {
 
   const showRangeBar = RANGE_DRIVEN_TABS.includes(tab);
 
+  // Stable empty dataset for the first paint and any re-fetch — keeps the
+  // dashboard skeleton (strips, axes, cards) locked while real data loads.
+  const data = useMemo(() => emptyInsights(), []);
+
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <div className="app-title">Claude Insights</div>
-          <div className="app-subtitle">Local meta-monitoring for Claude Code</div>
+        <div className="app-header-mascot" aria-hidden="true">
+          <Octopus size={48} />
         </div>
-        <button onClick={() => query.refetch()} disabled={query.isFetching}>
+        <div className="app-header-title">
+          <div className="app-title">Claude Insights</div>
+          <div className="app-subtitle">Local Meta-Monitoring for Claude Code</div>
+        </div>
+        <button
+          className="refresh-btn"
+          onClick={() => query.refetch()}
+          disabled={query.isFetching}
+        >
           {query.isFetching ? 'Refreshing…' : 'Refresh'}
         </button>
       </header>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div className="tabs">
-          <button
-            className="tab"
-            data-active={tab === 'usage'}
-            onClick={() => setTab('usage')}
-          >
-            Usage
+      <div className="control-row">
+        <div className="filter-bar">
+          <span className="filter-label">View</span>
+          <button data-active={tab === 'insights'} onClick={() => setTab('insights')}>
+            Insights
           </button>
-          <button
-            className="tab"
-            data-active={tab === 'activity'}
-            onClick={() => setTab('activity')}
-          >
-            Activity
-          </button>
-          <button
-            className="tab"
-            data-active={tab === 'operations'}
-            onClick={() => setTab('operations')}
-          >
-            Operations
-          </button>
-          <button
-            className="tab"
-            data-active={tab === 'history'}
-            onClick={() => setTab('history')}
-          >
-            History
-          </button>
-          <button
-            className="tab"
-            data-active={tab === 'quality'}
-            onClick={() => setTab('quality')}
-          >
+          <button data-active={tab === 'quality'} onClick={() => setTab('quality')}>
             Quality
           </button>
-        </div>
 
-        {/* visibility:hidden (not display:none) keeps the row height stable when
-            switching to tabs that don't use the range — prevents content shift. */}
-        <div
-          className="filter-bar"
-          style={{ visibility: showRangeBar ? 'visible' : 'hidden' }}
-          aria-hidden={!showRangeBar}
-        >
-          <span className="filter-label">Range</span>
+          <span className="filter-divider" aria-hidden="true" />
+
+          <span
+            className="filter-label"
+            style={{ visibility: showRangeBar ? 'visible' : 'hidden' }}
+            aria-hidden={!showRangeBar}
+          >
+            Range
+          </span>
           <button
             data-active={rangeId === 'window'}
             onClick={() => setRangeId('window')}
             tabIndex={showRangeBar ? 0 : -1}
+            style={{ visibility: showRangeBar ? 'visible' : 'hidden' }}
+            aria-hidden={!showRangeBar}
             title="Current Max-plan window — slides automatically at the configured reset time"
           >
             Window
@@ -149,38 +125,43 @@ export function App() {
               data-active={rangeId === r.id}
               onClick={() => setRangeId(r.id)}
               tabIndex={showRangeBar ? 0 : -1}
+              style={{ visibility: showRangeBar ? 'visible' : 'hidden' }}
+              aria-hidden={!showRangeBar}
             >
               {r.label}
             </button>
           ))}
-          {query.data && (
-            <div className="meta-strip">
-              <span>
-                <strong>{query.data.meta.totalAssistantMessages.toLocaleString()}</strong> assistant
-                msgs
-              </span>
-              <span>
-                <strong>{query.data.meta.fileCount}</strong> files
-              </span>
-              <span>
-                parsed in <strong>{query.data.meta.elapsedMs}ms</strong>
-              </span>
-            </div>
-          )}
+        </div>
+
+        <div className="meta-strip">
+          <span>
+            <strong>
+              {query.data ? query.data.meta.totalAssistantMessages.toLocaleString() : '—'}
+            </strong>{' '}
+            assistant msgs
+          </span>
+          <span>
+            <strong>{query.data ? query.data.meta.fileCount : '—'}</strong> files
+          </span>
+          <span>
+            parsed in <strong>{query.data ? `${query.data.meta.elapsedMs}ms` : '—'}</strong>
+          </span>
         </div>
       </div>
 
-      {tab === 'usage' && <UsageTab refreshKey={query.dataUpdatedAt} />}
-
-      {query.isLoading && tab !== 'usage' && <div className="loading">Parsing JSONL files…</div>}
-      {query.error && tab !== 'usage' && (
+      {query.error && (
         <div className="error">Failed to load insights: {(query.error as Error).message}</div>
       )}
-      {query.data && tab === 'operations' && <OperationsTab data={query.data.operations} />}
-      {query.data && tab === 'quality' && <QualityTab data={query.data.quality} />}
-      {query.data && tab === 'activity' && <ActivityTab data={query.data.activity} />}
-      {query.data && tab === 'history' && (
-        <HistoryTab usage={query.data.usage} facets={query.data.facets} />
+      {tab === 'insights' && (
+        <InsightsTab
+          activity={(query.data ?? data).activity}
+          operations={(query.data ?? data).operations}
+          usage={(query.data ?? data).usage}
+          usageLog={usageLogQuery.data ?? null}
+        />
+      )}
+      {tab === 'quality' && (
+        <QualityTab data={(query.data ?? data).quality} facets={(query.data ?? data).facets} />
       )}
     </div>
   );
