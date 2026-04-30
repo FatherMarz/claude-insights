@@ -12,6 +12,11 @@ import {
   getUsageLog,
   updateUsageLogConfig,
 } from './usage-log.ts';
+import {
+  appendCreditLogEntry,
+  deleteCreditLogEntry,
+  getCreditLog,
+} from './credit-log.ts';
 
 const app = express();
 const PORT = 3850;
@@ -104,6 +109,39 @@ app.patch('/api/usage-log/config', async (req: Request, res: Response) => {
     res.json(config);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.get('/api/credit-log', async (_req: Request, res: Response) => {
+  try {
+    res.json(await getCreditLog());
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.post('/api/credit-log', async (req: Request, res: Response) => {
+  try {
+    const { dollars, note, timestamp } = req.body ?? {};
+    const entry = await appendCreditLogEntry({
+      dollars: Number(dollars),
+      note: typeof note === 'string' ? note : undefined,
+      timestamp: typeof timestamp === 'string' ? timestamp : undefined,
+    });
+    res.status(201).json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'unknown error' });
+  }
+});
+
+app.delete('/api/credit-log/:id', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const ok = await deleteCreditLogEntry(id);
+    if (!ok) return res.status(404).json({ error: 'entry not found' });
+    res.status(204).end();
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'unknown error' });
   }
 });
 

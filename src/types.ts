@@ -152,6 +152,17 @@ export interface UsageLogFile {
   entries: UsageLogEntry[];
 }
 
+export interface CreditLogEntry {
+  id: string;
+  timestamp: string;
+  dollars: number;
+  note?: string;
+}
+
+export interface CreditLogFile {
+  entries: CreditLogEntry[];
+}
+
 export interface InsightsResponse {
   operations: OperationsAggregate;
   quality: QualityAggregate;

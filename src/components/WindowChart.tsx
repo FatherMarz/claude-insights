@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { UsageLogFile } from '../types.ts';
+import type { CreditLogEntry, UsageLogFile } from '../types.ts';
 import { APP_TIMEZONE, currentWindowStart, nextResetAfter } from '../lib/window.ts';
 import { projectHitTime } from '../lib/projection.ts';
 
@@ -33,12 +33,22 @@ interface Props {
   usageLog: UsageLogFile | null;
   height?: number;
   now?: Date;
+  creditEntries?: CreditLogEntry[];
+  anchorDollars?: number | null;
+  firstHundredAt?: string | null;
 }
 
 // Compact embedded version of the Usage tab's hero chart — locked to the
 // current window. Solid line = logged readings, dashed = linear projection,
 // vertical markers = now / reset / 100% ETA.
-export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
+export function WindowChart({
+  usageLog,
+  height = 200,
+  now: nowProp,
+  creditEntries,
+  anchorDollars,
+  firstHundredAt,
+}: Props) {
   const now = useMemo(() => nowProp ?? new Date(), [nowProp]);
 
   const derived = useMemo(() => {
@@ -53,7 +63,12 @@ export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     const projection = projectHitTime(usageLog.entries, windowStart, windowEnd);
 
-    const chartPoints: { t: number; actual?: number; projected?: number }[] = [];
+    const chartPoints: {
+      t: number;
+      actual?: number;
+      projected?: number;
+      synthetic?: number;
+    }[] = [];
     for (const e of inWindow) {
       chartPoints.push({ t: new Date(e.timestamp).getTime(), actual: e.percent });
     }
@@ -69,11 +84,43 @@ export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
         projected: Math.min(100, Math.max(0, projectedAtEnd)),
       });
     }
+
+    // Synthetic >100% line: one stepped point per credit entry. Anchored at
+    // firstHundredAt = 100, then each credit dollar adds (100 / anchor) pts.
+    let syntheticMax = 100;
+    if (
+      anchorDollars &&
+      anchorDollars > 0 &&
+      firstHundredAt &&
+      creditEntries &&
+      creditEntries.length > 0
+    ) {
+      const anchorMs = new Date(firstHundredAt).getTime();
+      chartPoints.push({ t: anchorMs, synthetic: 100 });
+      const sorted = [...creditEntries]
+        .filter((c) => c.timestamp >= firstHundredAt)
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      let cum = 0;
+      for (const c of sorted) {
+        cum += c.dollars;
+        const pct = 100 + (cum / anchorDollars) * 100;
+        chartPoints.push({ t: new Date(c.timestamp).getTime(), synthetic: pct });
+        if (pct > syntheticMax) syntheticMax = pct;
+      }
+      // Hold the synthetic line out to "now" so the user can see where they are.
+      if (sorted.length > 0) {
+        const lastCreditMs = new Date(sorted[sorted.length - 1].timestamp).getTime();
+        if (now.getTime() > lastCreditMs) {
+          chartPoints.push({ t: now.getTime(), synthetic: syntheticMax });
+        }
+      }
+    }
     chartPoints.sort((a, b) => a.t - b.t);
 
     const willOverage = !!projection && projection.eta < windowEnd;
-    return { windowStart, windowEnd, chartPoints, projection, willOverage };
-  }, [usageLog, now]);
+    const yMax = Math.max(100, Math.ceil((syntheticMax + 10) / 10) * 10);
+    return { windowStart, windowEnd, chartPoints, projection, willOverage, yMax };
+  }, [usageLog, now, creditEntries, anchorDollars, firstHundredAt]);
 
   const dayHourFmt = useMemo(
     () =>
@@ -105,7 +152,7 @@ export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
     );
   }
 
-  const { windowStart, windowEnd, chartPoints, projection, willOverage } = derived;
+  const { windowStart, windowEnd, chartPoints, projection, willOverage, yMax } = derived;
   const windowStartMs = windowStart.getTime();
   const windowEndMs = windowEnd.getTime();
   const xTicks: number[] = [];
@@ -127,7 +174,7 @@ export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
         <YAxis
           stroke={AXIS_STROKE}
           fontSize={10}
-          domain={[0, 100]}
+          domain={[0, yMax]}
           tickFormatter={(p) => `${p}%`}
         />
         <Tooltip
@@ -185,6 +232,14 @@ export function WindowChart({ usageLog, height = 200, now: nowProp }: Props) {
           strokeWidth={2}
           strokeDasharray="6 4"
           dot={false}
+          connectNulls
+        />
+        <Line
+          type="linear"
+          dataKey="synthetic"
+          stroke="#c4684a"
+          strokeWidth={2}
+          dot={{ r: 3, fill: '#c4684a' }}
           connectNulls
         />
       </LineChart>

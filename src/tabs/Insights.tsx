@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import type {
   ActivityAggregate,
+  CreditLogEntry,
   OperationsAggregate,
   UsageAggregate,
   UsageLogFile,
@@ -94,14 +95,38 @@ interface InsightsProps {
   operations: OperationsAggregate;
   usage: UsageAggregate;
   usageLog: UsageLogFile | null;
+  creditTotal: number;
+  windowCreditEntries: CreditLogEntry[];
+  anchorDollars: number | null;
+  firstHundredAt: string | null;
+  truePercent: number | null;
 }
 
-export function InsightsTab({ activity, operations, usage, usageLog }: InsightsProps) {
+export function InsightsTab({
+  activity,
+  operations,
+  usage,
+  usageLog,
+  creditTotal,
+  windowCreditEntries,
+  anchorDollars,
+  firstHundredAt,
+  truePercent,
+}: InsightsProps) {
   const { kpis } = activity;
   const totalPrompts = useMemo(
     () => operations.dailyTokens.reduce((sum, d) => sum + (d.prompts ?? 0), 0),
     [operations.dailyTokens]
   );
+
+  const latestPercent = useMemo(() => {
+    const entries = usageLog?.entries ?? [];
+    if (entries.length === 0) return null;
+    const last = entries.reduce((latest, e) =>
+      e.timestamp > latest.timestamp ? e : latest
+    );
+    return last.percent;
+  }, [usageLog]);
 
   return (
     <>
@@ -133,6 +158,22 @@ export function InsightsTab({ activity, operations, usage, usageLog }: InsightsP
           label="Est. cost"
           value={formatCost(kpis.totalCost)}
           sub="API rates"
+        />
+        <StatCell
+          label="Credits"
+          value={formatCost(creditTotal)}
+          sub="this range"
+        />
+        <StatCell
+          label="True %"
+          value={truePercent != null ? `${truePercent.toFixed(0)}%` : '—'}
+          sub={
+            anchorDollars != null
+              ? `100% ≈ ${formatCost(anchorDollars)}`
+              : firstHundredAt
+                ? 'no anchor yet'
+                : 'pre-100%'
+          }
         />
         <StatCell
           label="Median resp"
@@ -473,12 +514,18 @@ export function InsightsTab({ activity, operations, usage, usageLog }: InsightsP
           <div>
             <h3 className="card-title">Usage % across current window</h3>
             <p className="card-sub">
-              Solid = logged readings · dashed = linear projection · green = next reset · red = projected 100%
+              Solid green = readings · dashed amber = projection · copper = credit-derived overage · green = next reset · red = projected 100%
             </p>
           </div>
-          <LogReadingButton />
+          <LogReadingButton latestPercent={latestPercent} />
         </div>
-        <WindowChart usageLog={usageLog} height={200} />
+        <WindowChart
+          usageLog={usageLog}
+          height={200}
+          creditEntries={windowCreditEntries}
+          anchorDollars={anchorDollars}
+          firstHundredAt={firstHundredAt}
+        />
       </div>
     </>
   );

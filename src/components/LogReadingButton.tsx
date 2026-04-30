@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { postUsageLogEntry } from '../api.ts';
+import { postCreditLogEntry, postUsageLogEntry } from '../api.ts';
 
 const dialogStyle: React.CSSProperties = {
   background: '#1a1714',
@@ -58,17 +58,25 @@ const triggerButtonStyle: React.CSSProperties = {
   ...primaryButtonStyle,
 };
 
-export function LogReadingButton() {
+interface LogReadingButtonProps {
+  latestPercent: number | null;
+}
+
+export function LogReadingButton({ latestPercent }: LogReadingButtonProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [percentInput, setPercentInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
+  const [dollarsInput, setDollarsInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const qc = useQueryClient();
+
+  const showDollarField = (latestPercent ?? 0) >= 100;
 
   function open() {
     setError(null);
     setPercentInput('');
     setNoteInput('');
+    setDollarsInput('');
     dialog.current?.showModal();
   }
 
@@ -78,18 +86,58 @@ export function LogReadingButton() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const percent = Number(percentInput);
-    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
-      setError('Enter a number between 0 and 100');
+    const hasPercent = percentInput.trim() !== '';
+    const hasDollars = showDollarField && dollarsInput.trim() !== '';
+
+    if (!hasPercent && !hasDollars) {
+      setError(
+        showDollarField ? 'Enter a percent or a dollar amount' : 'Enter a number between 0 and 100'
+      );
       return;
     }
-    try {
-      await postUsageLogEntry({ percent, note: noteInput.trim() || undefined });
-      close();
-      qc.invalidateQueries({ queryKey: ['usage-log-config'] });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed to save');
+
+    let percent = NaN;
+    if (hasPercent) {
+      percent = Number(percentInput);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        setError('Percent must be between 0 and 100');
+        return;
+      }
     }
+
+    let dollars = NaN;
+    if (hasDollars) {
+      dollars = Number(dollarsInput);
+      if (!Number.isFinite(dollars) || dollars <= 0) {
+        setError('Dollars must be a positive number');
+        return;
+      }
+    }
+
+    const note = noteInput.trim() || undefined;
+    const results = await Promise.allSettled([
+      hasPercent ? postUsageLogEntry({ percent, note }) : Promise.resolve(null),
+      hasDollars ? postCreditLogEntry({ dollars, note }) : Promise.resolve(null),
+    ]);
+    const [percentResult, dollarsResult] = results;
+    if (hasPercent && percentResult.status === 'fulfilled') {
+      qc.invalidateQueries({ queryKey: ['usage-log-config'] });
+    }
+    if (hasDollars && dollarsResult.status === 'fulfilled') {
+      qc.invalidateQueries({ queryKey: ['credit-log'] });
+    }
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected'
+    );
+    if (failures.length === 0) {
+      close();
+      return;
+    }
+    setError(
+      failures
+        .map((f) => (f.reason instanceof Error ? f.reason.message : 'failed to save'))
+        .join('; ')
+    );
   }
 
   function handleClick(e: React.MouseEvent<HTMLDialogElement>) {
@@ -108,8 +156,13 @@ export function LogReadingButton() {
             Read the % from Claude Code's status display. Slash command:{' '}
             <code>/log-usage 47</code>.
           </p>
+          {showDollarField && (
+            <p className="card-sub" style={{ marginTop: 0, color: '#f4a627' }}>
+              You're at or past 100% — percent is optional, just log credits below.
+            </p>
+          )}
           <label style={{ fontSize: 11, color: '#80796d' }}>
-            Percent (0–100)
+            Percent (0–100){showDollarField && <span style={{ opacity: 0.6 }}> · optional</span>}
             <input
               type="number"
               min={0}
@@ -117,11 +170,26 @@ export function LogReadingButton() {
               step="0.1"
               value={percentInput}
               onChange={(e) => setPercentInput(e.target.value)}
-              required
+              required={!showDollarField}
               style={inputStyle}
-              autoFocus
+              autoFocus={!showDollarField}
             />
           </label>
+          {showDollarField && (
+            <label style={{ fontSize: 11, color: '#80796d' }}>
+              Credits purchased ($)
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={dollarsInput}
+                onChange={(e) => setDollarsInput(e.target.value)}
+                placeholder="e.g. 25.00"
+                style={inputStyle}
+                autoFocus
+              />
+            </label>
+          )}
           <label style={{ fontSize: 11, color: '#80796d' }}>
             Note (optional)
             <input

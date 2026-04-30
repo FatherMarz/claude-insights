@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchInsights, fetchUsageLog } from './api.ts';
+import { fetchCreditLog, fetchInsights, fetchUsageLog } from './api.ts';
 import { currentWindowStart } from './lib/window.ts';
 import { emptyInsights } from './lib/empty.ts';
 import { Octopus } from './components/Octopus.tsx';
@@ -47,6 +47,12 @@ export function App() {
   });
   const windowConfig = usageLogQuery.data?.config;
 
+  const creditLogQuery = useQuery({
+    queryKey: ['credit-log'],
+    queryFn: fetchCreditLog,
+    staleTime: 30_000,
+  });
+
   const { from, to } = useMemo(() => {
     if (rangeId === 'window') {
       if (windowConfig) {
@@ -64,6 +70,46 @@ export function App() {
     queryKey: ['insights', from, to],
     queryFn: () => fetchInsights(from, to),
   });
+
+  // No upper bound: credits are user-logged events, not derived from JSONL,
+  // so a fresh entry can have a timestamp slightly after the cached `to`.
+  const windowCreditEntries = useMemo(() => {
+    const entries = creditLogQuery.data?.entries ?? [];
+    return entries.filter((e) => e.timestamp >= from);
+  }, [creditLogQuery.data, from]);
+
+  const creditTotal = useMemo(
+    () => windowCreditEntries.reduce((sum, e) => sum + e.dollars, 0),
+    [windowCreditEntries]
+  );
+
+  // Anchor: $ value of "100%" for this user, this window. Sum the API-rate
+  // cost (server/activity.ts) from window-start through the day of the first
+  // 100% reading. costPerDay is day-bucketed, so anchoring is day-precise.
+  const { anchorDollars, firstHundredAt } = useMemo(() => {
+    const entries = usageLogQuery.data?.entries ?? [];
+    const inWindow = entries
+      .filter((e) => e.timestamp >= from && e.percent >= 100)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const first = inWindow[0];
+    if (!first || !query.data) return { anchorDollars: null, firstHundredAt: null };
+    const cutoffDay = first.timestamp.slice(0, 10); // YYYY-MM-DD
+    const fromDay = from.slice(0, 10);
+    const sum = query.data.activity.costPerDay.reduce((acc, d) => {
+      if (d.date >= fromDay && d.date <= cutoffDay) return acc + d.total;
+      return acc;
+    }, 0);
+    return {
+      anchorDollars: sum > 0 ? sum : null,
+      firstHundredAt: first.timestamp,
+    };
+  }, [usageLogQuery.data, query.data, from]);
+
+  const truePercent = useMemo(() => {
+    if (!firstHundredAt) return null;
+    if (!anchorDollars) return null;
+    return 100 + (creditTotal / anchorDollars) * 100;
+  }, [firstHundredAt, anchorDollars, creditTotal]);
 
   const showRangeBar = RANGE_DRIVEN_TABS.includes(tab);
 
@@ -83,7 +129,11 @@ export function App() {
         </div>
         <button
           className="refresh-btn"
-          onClick={() => query.refetch()}
+          onClick={() => {
+            query.refetch();
+            usageLogQuery.refetch();
+            creditLogQuery.refetch();
+          }}
           disabled={query.isFetching}
         >
           {query.isFetching ? 'Refreshing…' : 'Refresh'}
@@ -158,6 +208,11 @@ export function App() {
           operations={(query.data ?? data).operations}
           usage={(query.data ?? data).usage}
           usageLog={usageLogQuery.data ?? null}
+          creditTotal={creditTotal}
+          windowCreditEntries={windowCreditEntries}
+          anchorDollars={anchorDollars}
+          firstHundredAt={firstHundredAt}
+          truePercent={truePercent}
         />
       )}
       {tab === 'quality' && (
