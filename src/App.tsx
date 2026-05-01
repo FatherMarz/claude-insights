@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchCreditLog, fetchInsights, fetchUsageLog } from './api.ts';
 import { currentWindowStart } from './lib/window.ts';
+import { useNow } from './lib/useNow.ts';
 import { emptyInsights } from './lib/empty.ts';
 import { Octopus } from './components/Octopus.tsx';
 import { InsightsTab } from './tabs/Insights.tsx';
@@ -29,13 +30,10 @@ function isoFor(daysAgo: number): string {
   return d.toISOString();
 }
 
-function todayIso(): string {
-  return new Date().toISOString();
-}
-
 export function App() {
   const [tab, setTab] = useState<TabId>('insights');
   const [rangeId, setRangeId] = useState<RangeId>('window');
+  const now = useNow(60_000);
 
   // Pull the Manual Limit Log config so the "Window" range knows when the
   // current Max-plan window started. Cached for a minute; the config rarely
@@ -56,15 +54,15 @@ export function App() {
   const { from, to } = useMemo(() => {
     if (rangeId === 'window') {
       if (windowConfig) {
-        const start = currentWindowStart(new Date(), windowConfig);
-        return { from: start.toISOString(), to: todayIso() };
+        const start = currentWindowStart(now, windowConfig);
+        return { from: start.toISOString(), to: now.toISOString() };
       }
       // Sensible fallback while config loads: 7 days mimics a window roughly.
-      return { from: isoFor(7), to: todayIso() };
+      return { from: isoFor(7), to: now.toISOString() };
     }
     const range = RANGES.find((r) => r.id === rangeId);
-    return { from: isoFor(range?.days ?? 30), to: todayIso() };
-  }, [rangeId, windowConfig]);
+    return { from: isoFor(range?.days ?? 30), to: now.toISOString() };
+  }, [rangeId, windowConfig, now]);
 
   const query = useQuery({
     queryKey: ['insights', from, to],
@@ -213,6 +211,7 @@ export function App() {
           anchorDollars={anchorDollars}
           firstHundredAt={firstHundredAt}
           truePercent={truePercent}
+          now={now}
         />
       )}
       {tab === 'quality' && (

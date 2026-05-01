@@ -100,6 +100,7 @@ interface InsightsProps {
   anchorDollars: number | null;
   firstHundredAt: string | null;
   truePercent: number | null;
+  now: Date;
 }
 
 export function InsightsTab({
@@ -112,6 +113,7 @@ export function InsightsTab({
   anchorDollars,
   firstHundredAt,
   truePercent,
+  now,
 }: InsightsProps) {
   const { kpis } = activity;
   const totalPrompts = useMemo(
@@ -507,7 +509,7 @@ export function InsightsTab({
         </div>
       </details>
 
-      <WindowStatusStrip usageLog={usageLog} />
+      <WindowStatusStrip usageLog={usageLog} now={now} />
 
       <div className="card window-card">
         <div className="window-card-header">
@@ -522,6 +524,7 @@ export function InsightsTab({
         <WindowChart
           usageLog={usageLog}
           height={200}
+          now={now}
           creditEntries={windowCreditEntries}
           anchorDollars={anchorDollars}
           firstHundredAt={firstHundredAt}

@@ -46,13 +46,15 @@ function pctTone(pct: number): 'good' | 'warn' | 'bad' {
 
 interface Props {
   usageLog: UsageLogFile | null;
+  now?: Date;
 }
 
 // Live per-window status — Current %, Peak, Window resets, Projected hit.
 // Renders even when usageLog is missing (em-dash placeholders) so layout is
 // stable across initial load.
-export function WindowStatusStrip({ usageLog }: Props) {
-  const now = useMemo(() => new Date(), [usageLog]);
+export function WindowStatusStrip({ usageLog, now: nowProp }: Props) {
+  const fallbackNow = useMemo(() => new Date(), [usageLog]);
+  const now = nowProp ?? fallbackNow;
   const summary = useMemo(() => {
     if (!usageLog) return null;
     const start = currentWindowStart(now, usageLog.config);

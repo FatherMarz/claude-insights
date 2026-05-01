@@ -69,6 +69,10 @@ export function WindowChart({
       projected?: number;
       synthetic?: number;
     }[] = [];
+    // Anchor the actual line at 0% at window start. Usage resets to 0 at the
+    // boundary, so every window opens from 0 regardless of when the first
+    // manual reading is logged.
+    chartPoints.push({ t: windowStart.getTime(), actual: 0 });
     for (const e of inWindow) {
       chartPoints.push({ t: new Date(e.timestamp).getTime(), actual: e.percent });
     }
