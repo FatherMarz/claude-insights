@@ -23,6 +23,7 @@ import type {
 } from '../types.ts';
 import { timezoneLabel } from '../lib/window.ts';
 import { WindowChart } from '../components/WindowChart.tsx';
+import { ChartLegend } from '../components/ChartLegend.tsx';
 import { WindowStatusStrip } from '../components/WindowStatusStrip.tsx';
 import { LogReadingButton } from '../components/LogReadingButton.tsx';
 
@@ -516,7 +517,7 @@ export function InsightsTab({
           <div>
             <h3 className="card-title">Usage % across current window</h3>
             <p className="card-sub">
-              Solid green = readings · dashed amber = projection · copper = credit-derived overage · green = next reset · red = projected 100%
+              Each projection algorithm fans out from the latest reading toward 100%. Hover any line for its predicted ETA.
             </p>
           </div>
           <LogReadingButton latestPercent={latestPercent} />
@@ -529,6 +530,7 @@ export function InsightsTab({
           anchorDollars={anchorDollars}
           firstHundredAt={firstHundredAt}
         />
+        <ChartLegend />
       </div>
     </>
   );

@@ -11,9 +11,9 @@ import {
 } from 'recharts';
 import type { CreditLogEntry, UsageLogFile } from '../types.ts';
 import { APP_TIMEZONE, currentWindowStart, nextResetAfter } from '../lib/window.ts';
-import { projectHitTime } from '../lib/projection.ts';
+import { projectHitTime, PROJECTION_ALGORITHMS } from '../lib/projection.ts';
 
-const COLORS = { bar: '#5dd66c', amber: '#f4a627' };
+const COLORS = { bar: '#5dd66c' };
 const GRID_STROKE = 'rgba(232, 226, 214, 0.07)';
 const AXIS_STROKE = '#80796d';
 
@@ -62,13 +62,17 @@ export function WindowChart({
       })
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     const projection = projectHitTime(usageLog.entries, windowStart, windowEnd);
+    const algoProjections = PROJECTION_ALGORITHMS.map((algo) => ({
+      algo,
+      projection: algo.compute(usageLog.entries, windowStart, windowEnd),
+    }));
 
-    const chartPoints: {
+    type ChartPoint = {
       t: number;
       actual?: number;
-      projected?: number;
       synthetic?: number;
-    }[] = [];
+    } & Partial<Record<`proj_${string}`, number>>;
+    const chartPoints: ChartPoint[] = [];
     // Anchor the actual line at 0% at window start. Usage resets to 0 at the
     // boundary, so every window opens from 0 regardless of when the first
     // manual reading is logged.
@@ -77,15 +81,17 @@ export function WindowChart({
       chartPoints.push({ t: new Date(e.timestamp).getTime(), actual: e.percent });
     }
     const latest = inWindow[inWindow.length - 1] ?? null;
-    if (projection && latest) {
+    for (const { algo, projection: p } of algoProjections) {
+      if (!p || !latest) continue;
+      const key = `proj_${algo.id}` as const;
       const startMs = new Date(latest.timestamp).getTime();
-      const endMs = Math.min(windowEnd.getTime(), projection.eta.getTime());
+      const endMs = Math.min(windowEnd.getTime(), p.eta.getTime());
       const elapsedH = (endMs - startMs) / 3_600_000;
-      const projectedAtEnd = latest.percent + projection.slopePerHour * elapsedH;
-      chartPoints.push({ t: startMs, projected: latest.percent });
+      const projectedAtEnd = latest.percent + p.slopePerHour * elapsedH;
+      chartPoints.push({ t: startMs, [key]: latest.percent });
       chartPoints.push({
         t: endMs,
-        projected: Math.min(100, Math.max(0, projectedAtEnd)),
+        [key]: Math.min(100, Math.max(0, projectedAtEnd)),
       });
     }
 
@@ -123,7 +129,15 @@ export function WindowChart({
 
     const willOverage = !!projection && projection.eta < windowEnd;
     const yMax = Math.max(100, Math.ceil((syntheticMax + 10) / 10) * 10);
-    return { windowStart, windowEnd, chartPoints, projection, willOverage, yMax };
+    return {
+      windowStart,
+      windowEnd,
+      chartPoints,
+      projection,
+      algoProjections,
+      willOverage,
+      yMax,
+    };
   }, [usageLog, now, creditEntries, anchorDollars, firstHundredAt]);
 
   const dayHourFmt = useMemo(
@@ -156,7 +170,15 @@ export function WindowChart({
     );
   }
 
-  const { windowStart, windowEnd, chartPoints, projection, willOverage, yMax } = derived;
+  const {
+    windowStart,
+    windowEnd,
+    chartPoints,
+    projection,
+    algoProjections,
+    willOverage,
+    yMax,
+  } = derived;
   const windowStartMs = windowStart.getTime();
   const windowEndMs = windowEnd.getTime();
   const xTicks: number[] = [];
@@ -191,13 +213,14 @@ export function WindowChart({
         <ReferenceLine
           x={now.getTime()}
           stroke="#e8c547"
-          strokeDasharray="3 3"
+          strokeWidth={2}
+          strokeDasharray="4 3"
           label={{ value: 'now', position: 'top', fill: '#e8c547', fontSize: 10 }}
         />
         <ReferenceLine
           x={windowEndMs}
           stroke="#5dd66c"
-          strokeWidth={2}
+          strokeWidth={3}
           label={{ value: 'reset', position: 'top', fill: '#5dd66c', fontSize: 10, fontWeight: 600 }}
         />
         {willOverage && projection && (
@@ -218,7 +241,8 @@ export function WindowChart({
         <ReferenceLine
           y={100}
           stroke="#d94f4f"
-          strokeDasharray="3 3"
+          strokeWidth={2}
+          strokeDasharray="1 2"
           label={{ value: 'limit', position: 'right', fill: '#d94f4f', fontSize: 10 }}
         />
         <Line
@@ -229,15 +253,23 @@ export function WindowChart({
           dot={{ r: 3, fill: COLORS.bar }}
           connectNulls
         />
-        <Line
-          type="linear"
-          dataKey="projected"
-          stroke={COLORS.amber}
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={false}
-          connectNulls
-        />
+        {[...algoProjections].reverse().map(({ algo, projection: p }) =>
+          p ? (
+            <Line
+              key={algo.id}
+              type="linear"
+              dataKey={`proj_${algo.id}`}
+              name={algo.label}
+              stroke={algo.color}
+              strokeWidth={algo.strokeWidth}
+              strokeDasharray={algo.dashArray}
+              strokeLinecap="round"
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          ) : null
+        )}
         <Line
           type="linear"
           dataKey="synthetic"
