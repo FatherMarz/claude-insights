@@ -69,14 +69,34 @@ export function App() {
     queryFn: () => fetchInsights(from, to),
   });
 
+  // Current Max-plan window start, independent of the Range filter. The
+  // WindowChart and "True %" stat are always window-scoped — widening Range
+  // to 7d/30d shouldn't leak prior-window credits or 100% readings into them.
+  const windowFrom = useMemo(() => {
+    if (!windowConfig) return null;
+    return currentWindowStart(now, windowConfig).toISOString();
+  }, [now, windowConfig]);
+
+  // Range-scoped credit total — drives the "Credits — this range" stat.
   // No upper bound: credits are user-logged events, not derived from JSONL,
   // so a fresh entry can have a timestamp slightly after the cached `to`.
-  const windowCreditEntries = useMemo(() => {
+  const creditTotal = useMemo(() => {
     const entries = creditLogQuery.data?.entries ?? [];
-    return entries.filter((e) => e.timestamp >= from);
+    return entries
+      .filter((e) => e.timestamp >= from)
+      .reduce((sum, e) => sum + e.dollars, 0);
   }, [creditLogQuery.data, from]);
 
-  const creditTotal = useMemo(
+  // Window-scoped credit entries — feed the WindowChart's synthetic >100%
+  // line. Always clipped to the current window so widening Range doesn't
+  // bleed prior-window credits across the chart.
+  const windowCreditEntries = useMemo(() => {
+    if (!windowFrom) return [];
+    const entries = creditLogQuery.data?.entries ?? [];
+    return entries.filter((e) => e.timestamp >= windowFrom);
+  }, [creditLogQuery.data, windowFrom]);
+
+  const windowCreditTotal = useMemo(
     () => windowCreditEntries.reduce((sum, e) => sum + e.dollars, 0),
     [windowCreditEntries]
   );
@@ -85,14 +105,15 @@ export function App() {
   // cost (server/activity.ts) from window-start through the day of the first
   // 100% reading. costPerDay is day-bucketed, so anchoring is day-precise.
   const { anchorDollars, firstHundredAt } = useMemo(() => {
+    if (!windowFrom) return { anchorDollars: null, firstHundredAt: null };
     const entries = usageLogQuery.data?.entries ?? [];
     const inWindow = entries
-      .filter((e) => e.timestamp >= from && e.percent >= 100)
+      .filter((e) => e.timestamp >= windowFrom && e.percent >= 100)
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     const first = inWindow[0];
     if (!first || !query.data) return { anchorDollars: null, firstHundredAt: null };
     const cutoffDay = first.timestamp.slice(0, 10); // YYYY-MM-DD
-    const fromDay = from.slice(0, 10);
+    const fromDay = windowFrom.slice(0, 10);
     const sum = query.data.activity.costPerDay.reduce((acc, d) => {
       if (d.date >= fromDay && d.date <= cutoffDay) return acc + d.total;
       return acc;
@@ -101,13 +122,13 @@ export function App() {
       anchorDollars: sum > 0 ? sum : null,
       firstHundredAt: first.timestamp,
     };
-  }, [usageLogQuery.data, query.data, from]);
+  }, [usageLogQuery.data, query.data, windowFrom]);
 
   const truePercent = useMemo(() => {
     if (!firstHundredAt) return null;
     if (!anchorDollars) return null;
-    return 100 + (creditTotal / anchorDollars) * 100;
-  }, [firstHundredAt, anchorDollars, creditTotal]);
+    return 100 + (windowCreditTotal / anchorDollars) * 100;
+  }, [firstHundredAt, anchorDollars, windowCreditTotal]);
 
   const showRangeBar = RANGE_DRIVEN_TABS.includes(tab);
 
