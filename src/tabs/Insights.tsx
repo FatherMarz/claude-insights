@@ -21,7 +21,7 @@ import type {
   UsageAggregate,
   UsageLogFile,
 } from '../types.ts';
-import { timezoneLabel } from '../lib/window.ts';
+import { currentWindowStart, timezoneLabel } from '../lib/window.ts';
 import { WindowChart } from '../components/WindowChart.tsx';
 import { ChartLegend } from '../components/ChartLegend.tsx';
 import { WindowStatusStrip } from '../components/WindowStatusStrip.tsx';
@@ -123,13 +123,15 @@ export function InsightsTab({
   );
 
   const latestPercent = useMemo(() => {
-    const entries = usageLog?.entries ?? [];
-    if (entries.length === 0) return null;
-    const last = entries.reduce((latest, e) =>
+    if (!usageLog) return null;
+    const windowStartIso = currentWindowStart(now, usageLog.config).toISOString();
+    const inWindow = usageLog.entries.filter((e) => e.timestamp >= windowStartIso);
+    if (inWindow.length === 0) return null;
+    const last = inWindow.reduce((latest, e) =>
       e.timestamp > latest.timestamp ? e : latest
     );
     return last.percent;
-  }, [usageLog]);
+  }, [usageLog, now]);
 
   return (
     <>
