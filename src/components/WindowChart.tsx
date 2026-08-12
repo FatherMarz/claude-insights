@@ -14,6 +14,19 @@ import { APP_TIMEZONE, currentWindowStart, nextResetAfter } from '../lib/window.
 import { projectHitTime, PROJECTION_ALGORITHMS } from '../lib/projection.ts';
 
 const COLORS = { bar: '#5dd66c' };
+// Per-account colors for the actual-readings lines. Add more if you ever
+// introduce a third account. Exported so ChartLegend stays in sync.
+export const ACCOUNT_COLORS: Record<string, string> = {
+  personal: '#5dd66c', // green — keeps parity with old single-line color
+  work: '#5aaef0',     // blue
+  legacy: '#80796d',   // dim — untagged historical entries
+};
+export const ACCOUNT_LABEL: Record<string, string> = {
+  personal: 'Personal',
+  work: 'Work',
+  legacy: 'Legacy',
+};
+export const ACCOUNT_ORDER = ['personal', 'work', 'legacy'] as const;
 const GRID_STROKE = 'rgba(232, 226, 214, 0.07)';
 const AXIS_STROKE = '#80796d';
 
@@ -54,7 +67,28 @@ export function WindowChart({
   const derived = useMemo(() => {
     if (!usageLog) return null;
     const windowStart = currentWindowStart(now, usageLog.config);
-    const windowEnd = nextResetAfter(windowStart, usageLog.config);
+    let windowEnd = nextResetAfter(windowStart, usageLog.config);
+
+    // Pick the most recent seven_day_resets_at per account so each account's
+    // real reset boundary can be drawn as its own vertical line. Falls back to
+    // the global config's windowEnd if an account has no logged reset yet.
+    const accountResets = new Map<string, number>(); // epoch ms
+    const latestByAccount = new Map<string, (typeof usageLog.entries)[number]>();
+    for (const e of usageLog.entries) {
+      const acct = e.account || 'legacy';
+      const prev = latestByAccount.get(acct);
+      if (!prev || e.timestamp > prev.timestamp) latestByAccount.set(acct, e);
+    }
+    for (const [acct, e] of latestByAccount) {
+      if (typeof e.seven_day_resets_at === 'number' && e.seven_day_resets_at > 0) {
+        accountResets.set(acct, e.seven_day_resets_at * 1000);
+      }
+    }
+    // Expand the X-axis right edge so per-account reset lines always fit.
+    for (const ms of accountResets.values()) {
+      if (ms > windowEnd.getTime()) windowEnd = new Date(ms);
+    }
+
     const inWindow = usageLog.entries
       .filter((e) => {
         const t = new Date(e.timestamp);
@@ -69,17 +103,35 @@ export function WindowChart({
 
     type ChartPoint = {
       t: number;
-      actual?: number;
       synthetic?: number;
-    } & Partial<Record<`proj_${string}`, number>>;
+    } & Partial<Record<`actual_${string}`, number>> &
+      Partial<Record<`proj_${string}`, number>>;
     const chartPoints: ChartPoint[] = [];
-    // Anchor the actual line at 0% at window start. Usage resets to 0 at the
-    // boundary, so every window opens from 0 regardless of when the first
-    // manual reading is logged.
-    chartPoints.push({ t: windowStart.getTime(), actual: 0 });
+
+    // Split readings by account so each plan's burn gets its own line.
+    // Entries without an `account` field (legacy manual logs) get bucketed
+    // under "legacy" so they don't visually merge with either current account.
+    const byAccount = new Map<string, typeof inWindow>();
     for (const e of inWindow) {
-      chartPoints.push({ t: new Date(e.timestamp).getTime(), actual: e.percent });
+      const acct = e.account || 'legacy';
+      const arr = byAccount.get(acct) ?? [];
+      arr.push(e);
+      byAccount.set(acct, arr);
     }
+    const accounts = Array.from(byAccount.keys());
+
+    // Anchor each account's line at 0% at window start (usage resets at the boundary).
+    for (const acct of accounts) {
+      chartPoints.push({ t: windowStart.getTime(), [`actual_${acct}`]: 0 });
+      for (const e of byAccount.get(acct)!) {
+        chartPoints.push({
+          t: new Date(e.timestamp).getTime(),
+          [`actual_${acct}`]: e.percent,
+        });
+      }
+    }
+
+    // Single projection (across all readings) kept for the overage warning line.
     const latest = inWindow[inWindow.length - 1] ?? null;
     for (const { algo, projection: p } of algoProjections) {
       if (!p || !latest) continue;
@@ -137,6 +189,8 @@ export function WindowChart({
       algoProjections,
       willOverage,
       yMax,
+      accounts,
+      accountResets,
     };
   }, [usageLog, now, creditEntries, anchorDollars, firstHundredAt]);
 
@@ -178,6 +232,8 @@ export function WindowChart({
     algoProjections,
     willOverage,
     yMax,
+    accounts,
+    accountResets,
   } = derived;
   const windowStartMs = windowStart.getTime();
   const windowEndMs = windowEnd.getTime();
@@ -217,12 +273,35 @@ export function WindowChart({
           strokeDasharray="4 3"
           label={{ value: 'now', position: 'top', fill: '#e8c547', fontSize: 10 }}
         />
-        <ReferenceLine
-          x={windowEndMs}
-          stroke="#5dd66c"
-          strokeWidth={3}
-          label={{ value: 'reset', position: 'top', fill: '#5dd66c', fontSize: 10, fontWeight: 600 }}
-        />
+        {accountResets.size > 0 ? (
+          Array.from(accountResets.entries()).map(([acct, ms]) => {
+            const color = ACCOUNT_COLORS[acct] ?? '#5dd66c';
+            const label = ACCOUNT_LABEL[acct] ?? acct;
+            return (
+              <ReferenceLine
+                key={`reset-${acct}`}
+                x={ms}
+                stroke={color}
+                strokeWidth={2}
+                strokeDasharray="6 3"
+                label={{
+                  value: `${label} reset`,
+                  position: 'top',
+                  fill: color,
+                  fontSize: 10,
+                  fontWeight: 600,
+                }}
+              />
+            );
+          })
+        ) : (
+          <ReferenceLine
+            x={windowEndMs}
+            stroke="#5dd66c"
+            strokeWidth={3}
+            label={{ value: 'reset', position: 'top', fill: '#5dd66c', fontSize: 10, fontWeight: 600 }}
+          />
+        )}
         {willOverage && projection && (
           <ReferenceLine
             x={projection.eta.getTime()}
@@ -245,14 +324,22 @@ export function WindowChart({
           strokeDasharray="1 2"
           label={{ value: 'limit', position: 'right', fill: '#d94f4f', fontSize: 10 }}
         />
-        <Line
-          type="monotone"
-          dataKey="actual"
-          stroke={COLORS.bar}
-          strokeWidth={2}
-          dot={{ r: 3, fill: COLORS.bar }}
-          connectNulls
-        />
+        {accounts.map((acct) => {
+          const color = ACCOUNT_COLORS[acct] ?? COLORS.bar;
+          const label = ACCOUNT_LABEL[acct] ?? acct;
+          return (
+            <Line
+              key={acct}
+              type="monotone"
+              dataKey={`actual_${acct}`}
+              name={label}
+              stroke={color}
+              strokeWidth={2}
+              dot={{ r: 3, fill: color }}
+              connectNulls
+            />
+          );
+        })}
         {[...algoProjections].reverse().map(({ algo, projection: p }) =>
           p ? (
             <Line

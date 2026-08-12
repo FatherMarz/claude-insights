@@ -1,4 +1,5 @@
 import { PROJECTION_ALGORITHMS } from '../lib/projection.ts';
+import { ACCOUNT_COLORS, ACCOUNT_LABEL, ACCOUNT_ORDER } from './WindowChart.tsx';
 
 interface LegendItem {
   label: string;
@@ -9,8 +10,19 @@ interface LegendItem {
   title?: string;
 }
 
+const ACCOUNT_SERIES: LegendItem[] = ACCOUNT_ORDER.map((a) => ({
+  label: ACCOUNT_LABEL[a],
+  color: ACCOUNT_COLORS[a],
+  strokeWidth: 2,
+  showDot: true,
+  title:
+    a === 'legacy'
+      ? 'Untagged manual readings logged before per-account tracking'
+      : `${ACCOUNT_LABEL[a]} account readings`,
+}));
+
 const SERIES: LegendItem[] = [
-  { label: 'Readings', color: '#5dd66c', strokeWidth: 2, showDot: true },
+  ...ACCOUNT_SERIES,
   { label: 'Credit overage', color: '#c4684a', strokeWidth: 2, showDot: true },
   { label: 'Next reset', color: '#5dd66c', strokeWidth: 3 },
   { label: 'Now', color: '#e8c547', strokeWidth: 2, dashArray: '4 3' },

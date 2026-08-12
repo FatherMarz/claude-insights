@@ -80,11 +80,14 @@ app.get('/api/usage-log', async (_req: Request, res: Response) => {
 
 app.post('/api/usage-log', async (req: Request, res: Response) => {
   try {
-    const { percent, note, timestamp } = req.body ?? {};
+    const { percent, note, timestamp, account, seven_day_resets_at } = req.body ?? {};
     const entry = await appendUsageLogEntry({
       percent: Number(percent),
       note: typeof note === 'string' ? note : undefined,
       timestamp: typeof timestamp === 'string' ? timestamp : undefined,
+      account: typeof account === 'string' ? account : undefined,
+      seven_day_resets_at:
+        typeof seven_day_resets_at === 'number' ? seven_day_resets_at : undefined,
     });
     res.status(201).json(entry);
   } catch (err) {

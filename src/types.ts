@@ -139,6 +139,10 @@ export interface UsageLogEntry {
   timestamp: string;
   percent: number;
   note?: string;
+  account?: string;
+  // Unix epoch seconds — true reset boundary for this account's 7d window
+  // at log time. Used to draw per-account reset markers.
+  seven_day_resets_at?: number;
 }
 
 export interface UsageLogConfig {

@@ -11,6 +11,11 @@ export interface UsageLogEntry {
   timestamp: string;
   percent: number;
   note?: string;
+  account?: string;
+  // Unix epoch seconds — when the 7d rolling window for this account next
+  // resets. Captured from rate_limits.seven_day.resets_at at log time so
+  // each account's true window is preserved even when they're misaligned.
+  seven_day_resets_at?: number;
 }
 
 export interface UsageLogConfig {
@@ -57,17 +62,26 @@ export async function appendUsageLogEntry(input: {
   percent: number;
   note?: string;
   timestamp?: string;
+  account?: string;
+  seven_day_resets_at?: number;
 }): Promise<UsageLogEntry> {
   if (!Number.isFinite(input.percent) || input.percent < 0 || input.percent > 100) {
     throw new Error('percent must be a number between 0 and 100');
   }
-  const data = await readFileSafe();
+  const account = input.account?.trim() || undefined;
+  const resetsAt =
+    Number.isFinite(input.seven_day_resets_at) && (input.seven_day_resets_at as number) > 0
+      ? input.seven_day_resets_at
+      : undefined;
   const entry: UsageLogEntry = {
     id: randomUUID(),
     timestamp: input.timestamp ?? new Date().toISOString(),
     percent: Math.round(input.percent * 100) / 100,
     note: input.note?.trim() || undefined,
+    account,
+    seven_day_resets_at: resetsAt,
   };
+  const data = await readFileSafe();
   data.entries.push(entry);
   data.entries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   await writeFileSafe(data);
